@@ -9,6 +9,7 @@ public class TCPSocketImpl extends TCPSocket {
     private final long SSThreshold = 0;
     private final long windowSize = 0;
     private long seq = 100;
+    private long ackNumber = 100;
 
     public enum State {
         NONE,  // client
@@ -78,17 +79,31 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void send(String pathToFile) throws Exception {
-        TCPPacket packet = new TCPPacket(seq++, pathToFile.getBytes());
+        TCPPacket packet = new TCPPacket(seq, pathToFile.getBytes());
+        seq += packet.getDataLength();
         this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                 this.serverIp, this.serverPort));
+        TCPPacket ack = null;
+        while (ack == null || !(ack.getACK() && ack.getAcknowledgementNumber() == this.seq)) {
+            if (ack != null)
+                System.err.println("Invalid TCP Package");
+            byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes()];
+            DatagramPacket UDPPacket = new DatagramPacket(data, data.length);
+            UDPSocket.receive(UDPPacket);
+            ack = new TCPPacket(data);
+        }
     }
 
     @Override
     public void receive(String pathToFile) throws Exception {
         byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes()];
         this.UDPSocket.receive(new DatagramPacket(data, data.length));
-        TCPPacket packet = new TCPPacket(data);
-        System.out.println("> " + new String(packet.getData()));
+        TCPPacket req = new TCPPacket(data);
+        System.out.println("> " + new String(req.getData()));
+        TCPPacket res = new TCPPacket(seq++, req.getSequenceNumber() + req.getDataLength(),
+                true, false, pathToFile.getBytes());
+        this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(),
+                this.serverIp, this.serverPort));
     }
 
     @Override

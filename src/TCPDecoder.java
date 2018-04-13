@@ -15,6 +15,7 @@ public class TCPDecoder {
         System.out.println("acknowledgementNumber:\t" + packet.getAcknowledgementNumber());
         System.out.println("ACK:\t\t\t" + packet.getACK());
         System.out.println("SYN:\t\t\t" + packet.getSYN());
+        System.out.println("dataLength:\t\t\t" + packet.getDataLength());
         System.out.println("data (as Hex):\t\t" + Integer.toHexString(toInt(packet.getData())));
         System.out.println("data (as String):\t" + new String(packet.getData()));
     }

@@ -5,16 +5,17 @@ public class TCPPacket {
     private Long acknowledgementNumber;
     private Boolean ACK;
     private Boolean SYN;
+    private int dataLength;
     private byte[] data;
 
-    public static final int dataOffset = Long.SIZE + Long.SIZE + Byte.SIZE + Byte.SIZE;
+    public static final int dataOffset = Long.SIZE + Long.SIZE + Byte.SIZE + Byte.SIZE + Integer.SIZE;
 
     public int getSize() {
-        return dataOffset + data.length * Byte.SIZE;
+        return dataOffset + this.getDataLength() * Byte.SIZE;
     }
 
     public int getBytesNumber() {
-        return this.getSize() / Byte.SIZE + (this.getSize() % Byte.SIZE != 0 ? 1 : 0);
+        return dataOffset / Byte.SIZE + (dataOffset % Byte.SIZE != 0 ? 1 : 0) + this.getDataLength();
     }
 
     public TCPPacket(byte[] UDPData) {
@@ -25,8 +26,9 @@ public class TCPPacket {
         this.acknowledgementNumber = buffer.getLong();
         this.ACK = buffer.get() != 0;
         this.SYN = buffer.get() != 0;
-        this.data = new byte[buffer.remaining()];
-        buffer.get(this.data, 0, buffer.remaining());
+        this.dataLength = buffer.getInt();
+        this.data = new byte[this.dataLength];
+        buffer.get(this.data, 0, this.dataLength);
     }
 
     public TCPPacket(Long sequenceNumber, Long acknowledgementNumber, Boolean ACK, Boolean SYN, byte[] data) {
@@ -34,7 +36,8 @@ public class TCPPacket {
         this.acknowledgementNumber = acknowledgementNumber;
         this.ACK = ACK;
         this.SYN = SYN;
-        this.data = data != null ? data : new byte[0];
+        this.data = data != null ? data : new byte[1];
+        this.dataLength = this.data.length;
     }
 
     public TCPPacket(Long sequenceNumber, byte[] data) {
@@ -61,12 +64,17 @@ public class TCPPacket {
         return data;
     }
 
+    public int getDataLength() {
+        return dataLength;
+    }
+
     public byte[] toUDPData() {
         ByteBuffer res = ByteBuffer.allocate(this.getBytesNumber());
         res.putLong(this.sequenceNumber);
         res.putLong(this.acknowledgementNumber);
         res.put((byte) (ACK ? 1 : 0));
         res.put((byte) (SYN ? 1 : 0));
+        res.putInt(this.dataLength);
         res.put(this.data);
         return res.array();
     }
