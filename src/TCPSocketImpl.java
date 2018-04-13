@@ -10,7 +10,6 @@ public class TCPSocketImpl extends TCPSocket {
     private final long SSThreshold = 0;
     private final long windowSize = 0;
     private long seq = 100;
-    private long ackNumber = 100;
 
     public enum State {
         NONE,  // client
@@ -27,8 +26,8 @@ public class TCPSocketImpl extends TCPSocket {
         this.serverIp = InetAddress.getByName(ip);
         this.serverPort = port;
         this.state = state;
-        ConsoleLog.connectionLog("Client is up on port " + this.UDPSocket.getLocalPort()
-                + " and is connected to " + this.serverIp + ":" + this.serverPort + ".");
+        ConsoleLog.connectionLog(String.format("Client is up on port %d and is connected to %s:%d.",
+                this.UDPSocket.getLocalPort(), this.serverIp, this.serverPort));
     }
 
     public TCPSocketImpl(String ip, int port) throws Exception {  // for client
@@ -49,7 +48,7 @@ public class TCPSocketImpl extends TCPSocket {
             req = new TCPPacket(data);
         }
         this.serverPort = UDPPacket.getPort();
-        ConsoleLog.connectionLog("Client is connected to " + this.serverIp + ":" + this.serverPort + ".");
+        ConsoleLog.connectionLog(String.format("Client now is connected to %s:%d.", this.serverIp, this.serverPort));
         this.state = State.ESTABLISHED;
         ConsoleLog.handshakingLog("Handshaking: received 2/3");
         TCPPacket res = new TCPPacket(seq++, req.getSequenceNumber() + 1,
