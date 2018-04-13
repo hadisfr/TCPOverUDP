@@ -8,7 +8,7 @@ public class TCPServerSocketImpl extends TCPServerSocket {
     public TCPServerSocketImpl(int port) throws Exception {
         super(port);
         this.UDPSocket = new EnhancedDatagramSocket(port);
-        System.err.println("Server is listening on port " + this.UDPSocket.getLocalPort() + ".");
+        ConsoleLog.connectionLog("Server is listening on port " + this.UDPSocket.getLocalPort() + ".");
     }
 
     @Override
@@ -23,13 +23,13 @@ public class TCPServerSocketImpl extends TCPServerSocket {
             this.UDPSocket.receive(UDPPacket);
             req = new TCPPacket(data);
         }
-        System.err.println("Handshaking: received 1/3");
+        ConsoleLog.handshakingLog("Handshaking: received 1/3");
         return new TCPSocketImpl(UDPPacket.getAddress().getHostAddress(), UDPPacket.getPort(), req);
     }
 
     @Override
     public void close() throws Exception {
         this.UDPSocket.close();
-        System.err.println("Server is shutting down.");
+        ConsoleLog.connectionLog("Server is shutting down.");
     }
 }

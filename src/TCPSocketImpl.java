@@ -25,7 +25,7 @@ public class TCPSocketImpl extends TCPSocket {
         this.serverIp = InetAddress.getByName(ip);
         this.serverPort = port;
         this.state = state;
-        System.err.println("Client is up on port " + this.UDPSocket.getLocalPort()
+        ConsoleLog.connectionLog("Client is up on port " + this.UDPSocket.getLocalPort()
                 + " and is connected to " + this.serverIp + ":" + this.serverPort + ".");
     }
 
@@ -35,7 +35,7 @@ public class TCPSocketImpl extends TCPSocket {
         UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                 this.serverIp, this.serverPort));
         this.state = State.SYN_SENT;
-        System.err.println("Handshaking: sent 1/3");
+        ConsoleLog.handshakingLog("Handshaking: sent 1/3");
         DatagramPacket UDPPacket = null;
         TCPPacket req = null;
         while (req == null || !(req.getSYN() && req.getACK() && req.getAcknowledgementNumber() == this.seq)) {
@@ -47,13 +47,13 @@ public class TCPSocketImpl extends TCPSocket {
             req = new TCPPacket(data);
         }
         this.serverPort = UDPPacket.getPort();
-        System.err.println("Client is connected to " + this.serverIp + ":" + this.serverPort + ".");
+        ConsoleLog.connectionLog("Client is connected to " + this.serverIp + ":" + this.serverPort + ".");
         this.state = State.ESTABLISHED;
-        System.err.println("Handshaking: received 2/3");
+        ConsoleLog.handshakingLog("Handshaking: received 2/3");
         TCPPacket res = new TCPPacket(seq++, req.getSequenceNumber() + 1,
                 true, false, null);
         this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(), this.serverIp, this.serverPort));
-        System.err.println("Handshaking: sent 3/3");
+        ConsoleLog.handshakingLog("Handshaking: sent 3/3");
     }
 
     public TCPSocketImpl(String ip, int port, TCPPacket handshakingReq) throws Exception {  // for server
@@ -61,7 +61,7 @@ public class TCPSocketImpl extends TCPSocket {
         TCPPacket res = new TCPPacket(seq++, handshakingReq.getSequenceNumber() + 1,
                 true, true, null);
         this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(), this.serverIp, this.serverPort));
-        System.err.println("Handshaking: sent 2/3");
+        ConsoleLog.handshakingLog("Handshaking: sent 2/3");
         DatagramPacket UDPPacket = null;
         TCPPacket req = null;
         while (req == null || !(!req.getSYN() && req.getACK() && req.getAcknowledgementNumber() == this.seq)) {
@@ -73,7 +73,7 @@ public class TCPSocketImpl extends TCPSocket {
             req = new TCPPacket(data);
         }
         this.state = State.ESTABLISHED;
-        System.err.println("Handshaking: received 3/3");
+        ConsoleLog.handshakingLog("Handshaking: received 3/3");
     }
 
     @Override
@@ -94,7 +94,7 @@ public class TCPSocketImpl extends TCPSocket {
     @Override
     public void close() throws Exception {
         this.UDPSocket.close();
-        System.err.println("Client is shutting down.");
+        ConsoleLog.connectionLog("Client is shutting down.");
     }
 
     @Override
