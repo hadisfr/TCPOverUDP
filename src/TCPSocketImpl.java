@@ -8,7 +8,7 @@ public class TCPSocketImpl extends TCPSocket {
     private int serverPort;
 
     private final long SSThreshold = 0;
-    private final long windowSize = 0;
+    private final long windowSize = 1;
     private long seq = 100;
 
     public enum State {
@@ -63,13 +63,12 @@ public class TCPSocketImpl extends TCPSocket {
                 true, true, null);
         this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(), this.serverIp, this.serverPort));
         ConsoleLog.handshakingLog("Handshaking: sent 2/3");
-        DatagramPacket UDPPacket = null;
         TCPPacket req = null;
         while (req == null || !(!req.getSYN() && req.getACK() && req.getAcknowledgementNumber() == this.seq)) {
             if (req != null)
                 System.err.println("Invalid TCP Package");
             byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes()];
-            UDPPacket = new DatagramPacket(data, data.length);
+            DatagramPacket UDPPacket = new DatagramPacket(data, data.length);
             UDPSocket.receive(UDPPacket);
             req = new TCPPacket(data);
         }
@@ -133,7 +132,7 @@ public class TCPSocketImpl extends TCPSocket {
     @Override
     public void close() throws Exception {
         this.UDPSocket.close();
-        ConsoleLog.connectionLog("Client is shutting down.");
+        ConsoleLog.connectionLog("Client is down.");
     }
 
     @Override

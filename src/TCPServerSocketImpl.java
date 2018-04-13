@@ -1,14 +1,12 @@
 import java.net.DatagramPacket;
 
 public class TCPServerSocketImpl extends TCPServerSocket {
-    EnhancedDatagramSocket UDPSocket;
-
-    private long seq = 100;
+    private EnhancedDatagramSocket UDPSocket;
 
     public TCPServerSocketImpl(int port) throws Exception {
         super(port);
         this.UDPSocket = new EnhancedDatagramSocket(port);
-        ConsoleLog.connectionLog("Server is listening on port " + this.UDPSocket.getLocalPort() + ".");
+        ConsoleLog.connectionLog("Server is up and listening on port " + this.UDPSocket.getLocalPort() + ".");
     }
 
     @Override
@@ -30,6 +28,6 @@ public class TCPServerSocketImpl extends TCPServerSocket {
     @Override
     public void close() throws Exception {
         this.UDPSocket.close();
-        ConsoleLog.connectionLog("Server is shutting down.");
+        ConsoleLog.connectionLog("Server is down.");
     }
 }
