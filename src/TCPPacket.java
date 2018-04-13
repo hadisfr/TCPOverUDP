@@ -34,11 +34,11 @@ public class TCPPacket {
         this.acknowledgementNumber = acknowledgementNumber;
         this.ACK = ACK;
         this.SYN = SYN;
-        this.data = data;
+        this.data = data != null ? data : new byte[0];
     }
 
-    public TCPPacket(Long sequenceNumber, Long acknowledgementNumber, byte[] data) {
-        this(sequenceNumber, acknowledgementNumber, false, false, data);
+    public TCPPacket(Long sequenceNumber, byte[] data) {
+        this(sequenceNumber, (long)(0), false, false, data);
     }
 
     public Long getSequenceNumber() {
