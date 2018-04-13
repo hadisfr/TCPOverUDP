@@ -77,9 +77,8 @@ public class TCPSocketImpl extends TCPSocket {
         ConsoleLog.handshakingLog("Handshaking: received 3/3");
     }
 
-    @Override
-    public void send(String pathToFile) throws Exception {
-        TCPPacket packet = new TCPPacket(seq, pathToFile.getBytes());
+    private void send(byte[] data) throws Exception {
+        TCPPacket packet = new TCPPacket(seq, data);
         seq += packet.getDataLength();
         this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                 this.serverIp, this.serverPort));
@@ -87,23 +86,31 @@ public class TCPSocketImpl extends TCPSocket {
         while (ack == null || !(ack.getACK() && ack.getAcknowledgementNumber() == this.seq)) {
             if (ack != null)
                 System.err.println("Invalid TCP Package");
-            byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes()];
-            DatagramPacket UDPPacket = new DatagramPacket(data, data.length);
-            UDPSocket.receive(UDPPacket);
-            ack = new TCPPacket(data);
+            byte[] ackData = new byte[this.UDPSocket.getPayloadLimitInBytes()];
+            UDPSocket.receive(new DatagramPacket(ackData, ackData.length));
+            ack = new TCPPacket(ackData);
         }
+    }
+
+    private byte[] receive() throws Exception {
+        byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes()];
+        this.UDPSocket.receive(new DatagramPacket(data, data.length));
+        TCPPacket req = new TCPPacket(data);
+        TCPPacket res = new TCPPacket(seq++, req.getSequenceNumber() + req.getDataLength(),
+                true, false, null);
+        this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(),
+                this.serverIp, this.serverPort));
+        return req.getData();
+    }
+
+    @Override
+    public void send(String pathToFile) throws Exception {
+        this.send(pathToFile.getBytes());
     }
 
     @Override
     public void receive(String pathToFile) throws Exception {
-        byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes()];
-        this.UDPSocket.receive(new DatagramPacket(data, data.length));
-        TCPPacket req = new TCPPacket(data);
-        System.out.println("> " + new String(req.getData()));
-        TCPPacket res = new TCPPacket(seq++, req.getSequenceNumber() + req.getDataLength(),
-                true, false, pathToFile.getBytes());
-        this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(),
-                this.serverIp, this.serverPort));
+        System.out.println("> " + new String(this.receive()));
     }
 
     @Override
