@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
+import java.util.ArrayList;
 
 public class TCPSocketImpl extends TCPSocket {
     private EnhancedDatagramSocket UDPSocket;
@@ -11,7 +12,10 @@ public class TCPSocketImpl extends TCPSocket {
     private final long windowSize = 1;
     private long seq = 100;
     private long expectedSeq;
-    private long expectedAck;
+
+    private ArrayList<TCPPacket> window = new ArrayList<>();
+
+    private AckThread ackThread;
 
     public enum State {
         NONE,  // client
@@ -30,6 +34,7 @@ public class TCPSocketImpl extends TCPSocket {
         this.state = state;
         ConsoleLog.connectionLog(String.format("Client is up on port %d and is connected to %s:%d.",
                 this.UDPSocket.getLocalPort(), this.serverIp, this.serverPort));
+        ackThread = new AckThread(this, this.UDPSocket);
     }
 
     public TCPSocketImpl(String ip, int port) throws Exception {  // for client
@@ -86,22 +91,11 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     private void send(byte[] data) throws Exception {
-        TCPPacket ack = null;
-        while (ack == null || !(ack.getACK() && ack.getAcknowledgementNumber() >= this.expectedAck)) {
-            if (ack != null) {
-                System.err.println("Invalid TCP Package");
-                System.err.println("ack: " + ack.getAcknowledgementNumber() + " exp:" + this.expectedAck);
-                // TODO: should do nothing and resend data with timer
-            }
-            TCPPacket packet = new TCPPacket(seq, data);
-            this.expectedAck = seq + packet.getDataLength() + 1;
-            this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
-                    this.serverIp, this.serverPort));
-            byte[] ackData = new byte[this.UDPSocket.getPayloadLimitInBytes()];
-            UDPSocket.receive(new DatagramPacket(ackData, ackData.length));
-            ack = new TCPPacket(ackData);
-        }
-        this.seq = ack.getAcknowledgementNumber();
+        TCPPacket packet = new TCPPacket(seq, data);
+        this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
+                this.serverIp, this.serverPort));
+        window.add(packet);
+        ackThread.addExpectedAck(seq + packet.getDataLength() + 1);
     }
 
     private byte[] receive() throws Exception {
@@ -127,13 +121,16 @@ public class TCPSocketImpl extends TCPSocket {
         File file = new File(pathToFile);
         BufferedInputStream buffer = new BufferedInputStream(new FileInputStream(file));
         int sentBytes = 0;
+        ackThread.start();
         while (sentBytes < file.length()) {
             byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes() - TCPPacket.dataOffsetByBytes];
             sentBytes += buffer.read(data, 0, data.length);
             ConsoleLog.fileLog(((float) sentBytes / file.length() * 100) + "%");
+            while(window.size() >= windowSize); // TODO: spinlock must be replaced with sth more efficient
             this.send(data);
         }
         this.send((byte[]) null);
+        ackThread.stopRunning();
         buffer.close();
     }
 
@@ -165,5 +162,14 @@ public class TCPSocketImpl extends TCPSocket {
     @Override
     public long getWindowSize() {
         return windowSize;
+    }
+
+    public void newAckReceived(int packetsToMove){
+        if(packetsToMove > window.size()) {
+            window.clear();
+            return;
+        }
+        for(int i = 0; i < packetsToMove; i++)
+            window.remove(0);
     }
 }
