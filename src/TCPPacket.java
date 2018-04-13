@@ -37,7 +37,7 @@ public class TCPPacket {
         this.acknowledgementNumber = acknowledgementNumber;
         this.ACK = ACK;
         this.SYN = SYN;
-        this.data = data != null ? data : new byte[1];
+        this.data = data != null ? data : new byte[0];
         this.dataLength = this.data.length;
     }
 

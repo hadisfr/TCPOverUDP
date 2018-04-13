@@ -94,7 +94,7 @@ public class TCPSocketImpl extends TCPSocket {
                 // TODO: should do nothing and resend data with timer
             }
             TCPPacket packet = new TCPPacket(seq, data);
-            this.expectedAck = seq + packet.getDataLength();
+            this.expectedAck = seq + packet.getDataLength() + 1;
             this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                     this.serverIp, this.serverPort));
             byte[] ackData = new byte[this.UDPSocket.getPayloadLimitInBytes()];
@@ -110,7 +110,7 @@ public class TCPSocketImpl extends TCPSocket {
         TCPPacket req = new TCPPacket(data);
         byte[] ret = null;
         if (req.getSequenceNumber() == this.expectedSeq) {
-            this.expectedSeq += req.getDataLength();
+            this.expectedSeq += req.getDataLength() + 1;
             ret = req.getData();
         } else {
             System.err.println("Invalid TCP Package");
@@ -144,7 +144,7 @@ public class TCPSocketImpl extends TCPSocket {
             byte[] data = this.receive();
             if (data == null)
                 continue;
-            if (data.length == 1)
+            if (data.length == 0)
                 break;
             buffer.write(data);
         }
