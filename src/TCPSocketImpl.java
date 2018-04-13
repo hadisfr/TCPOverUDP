@@ -10,6 +10,8 @@ public class TCPSocketImpl extends TCPSocket {
     private final long SSThreshold = 0;
     private final long windowSize = 1;
     private long seq = 100;
+    private long expectedSeq;
+    private long expectedAck;
 
     public enum State {
         NONE,  // client
@@ -39,7 +41,8 @@ public class TCPSocketImpl extends TCPSocket {
         ConsoleLog.handshakingLog("Handshaking: sent 1/3");
         DatagramPacket UDPPacket = null;
         TCPPacket req = null;
-        while (req == null || !(req.getSYN() && req.getACK() && req.getAcknowledgementNumber() == this.seq)) {
+        while (req == null || !(req.getSYN() && req.getACK()
+                && req.getAcknowledgementNumber() == this.seq)) {
             if (req != null)
                 System.err.println("Invalid TCP Package");
             byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes()];
@@ -48,12 +51,15 @@ public class TCPSocketImpl extends TCPSocket {
             req = new TCPPacket(data);
         }
         this.serverPort = UDPPacket.getPort();
-        ConsoleLog.connectionLog(String.format("Client now is connected to %s:%d.", this.serverIp, this.serverPort));
+        ConsoleLog.connectionLog(String.format("Client now is connected to %s:%d.",
+                this.serverIp, this.serverPort));
+        this.expectedSeq = req.getSequenceNumber() + 1;
         this.state = State.ESTABLISHED;
         ConsoleLog.handshakingLog("Handshaking: received 2/3");
         TCPPacket res = new TCPPacket(seq++, req.getSequenceNumber() + 1,
                 true, false, null);
-        this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(), this.serverIp, this.serverPort));
+        this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(),
+                this.serverIp, this.serverPort));
         ConsoleLog.handshakingLog("Handshaking: sent 3/3");
     }
 
@@ -61,10 +67,12 @@ public class TCPSocketImpl extends TCPSocket {
         this(ip, port, State.SYN_RECEIVED);
         TCPPacket res = new TCPPacket(seq++, handshakingReq.getSequenceNumber() + 1,
                 true, true, null);
-        this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(), this.serverIp, this.serverPort));
+        this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(),
+                this.serverIp, this.serverPort));
         ConsoleLog.handshakingLog("Handshaking: sent 2/3");
         TCPPacket req = null;
-        while (req == null || !(!req.getSYN() && req.getACK() && req.getAcknowledgementNumber() == this.seq)) {
+        while (req == null || !(!req.getSYN() && req.getACK()
+                && req.getAcknowledgementNumber() == this.seq)) {
             if (req != null)
                 System.err.println("Invalid TCP Package");
             byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes()];
@@ -72,34 +80,46 @@ public class TCPSocketImpl extends TCPSocket {
             UDPSocket.receive(UDPPacket);
             req = new TCPPacket(data);
         }
+        this.expectedSeq = req.getSequenceNumber() + 1;
         this.state = State.ESTABLISHED;
         ConsoleLog.handshakingLog("Handshaking: received 3/3");
     }
 
     private void send(byte[] data) throws Exception {
-        TCPPacket packet = new TCPPacket(seq, data);
-        seq += packet.getDataLength();
-        this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
-                this.serverIp, this.serverPort));
         TCPPacket ack = null;
-        while (ack == null || !(ack.getACK() && ack.getAcknowledgementNumber() == this.seq)) {
-            if (ack != null)
+        while (ack == null || !(ack.getACK() && ack.getAcknowledgementNumber() >= this.expectedAck)) {
+            if (ack != null) {
                 System.err.println("Invalid TCP Package");
+                System.err.println("ack: " + ack.getAcknowledgementNumber() + " exp:" + this.expectedAck);
+                // TODO: should do nothing and resend data with timer
+            }
+            TCPPacket packet = new TCPPacket(seq, data);
+            this.expectedAck = seq + packet.getDataLength();
+            this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
+                    this.serverIp, this.serverPort));
             byte[] ackData = new byte[this.UDPSocket.getPayloadLimitInBytes()];
             UDPSocket.receive(new DatagramPacket(ackData, ackData.length));
             ack = new TCPPacket(ackData);
         }
+        this.seq = ack.getAcknowledgementNumber();
     }
 
     private byte[] receive() throws Exception {
         byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes()];
         this.UDPSocket.receive(new DatagramPacket(data, data.length));
         TCPPacket req = new TCPPacket(data);
-        TCPPacket res = new TCPPacket(seq++, req.getSequenceNumber() + req.getDataLength(),
-                true, false, null);
+        byte[] ret = null;
+        if (req.getSequenceNumber() == this.expectedSeq) {
+            this.expectedSeq += req.getDataLength();
+            ret = req.getData();
+        } else {
+            System.err.println("Invalid TCP Package");
+            System.err.println("seq: " + req.getSequenceNumber() + " exp: " + this.expectedSeq);
+        }
+        TCPPacket res = new TCPPacket(seq++, this.expectedSeq, true, false, null);
         this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(),
                 this.serverIp, this.serverPort));
-        return req.getData();
+        return ret;
     }
 
     @Override
@@ -122,7 +142,9 @@ public class TCPSocketImpl extends TCPSocket {
         BufferedOutputStream buffer = new BufferedOutputStream(new FileOutputStream(new File(pathToFile)));
         while (true) {
             byte[] data = this.receive();
-            if (data.length <= 1)
+            if (data == null)
+                continue;
+            if (data.length == 1)
                 break;
             buffer.write(data);
         }
