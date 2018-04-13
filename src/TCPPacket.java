@@ -7,14 +7,14 @@ public class TCPPacket {
     private Boolean SYN;
     private byte[] data;
 
-    private static final int dataOffset = Long.SIZE + Long.SIZE +  Byte.SIZE +  Byte.SIZE;
+    public static final int dataOffset = Long.SIZE + Long.SIZE +  Byte.SIZE +  Byte.SIZE;
 
-    public int SIZE() {
+    public int getSize() {
         return dataOffset + data.length * Byte.SIZE;
     }
 
-    public int BYTES() {
-        return this.SIZE() / Byte.SIZE + (this.SIZE() % Byte.SIZE != 0 ? 1 : 0);
+    public int getBytesNumber() {
+        return this.getSize() / Byte.SIZE + (this.getSize() % Byte.SIZE != 0 ? 1 : 0);
     }
 
     public TCPPacket(byte[] UDPData) {
@@ -62,7 +62,7 @@ public class TCPPacket {
     }
 
     public byte[] toUDPData() {
-        ByteBuffer res = ByteBuffer.allocate(this.BYTES());
+        ByteBuffer res = ByteBuffer.allocate(this.getBytesNumber());
         res.putLong(this.sequenceNumber);
         res.putLong(this.acknowledgementNumber);
         res.put((byte) (ACK ? 1 : 0));
