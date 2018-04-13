@@ -7,7 +7,7 @@ public class TCPPacket {
     private Boolean SYN;
     private byte[] data;
 
-    public static final int dataOffset = Long.SIZE + Long.SIZE +  Byte.SIZE +  Byte.SIZE;
+    public static final int dataOffset = Long.SIZE + Long.SIZE + Byte.SIZE + Byte.SIZE;
 
     public int getSize() {
         return dataOffset + data.length * Byte.SIZE;
@@ -38,7 +38,7 @@ public class TCPPacket {
     }
 
     public TCPPacket(Long sequenceNumber, byte[] data) {
-        this(sequenceNumber, (long)(0), false, false, data);
+        this(sequenceNumber, (long) (0), false, false, data);
     }
 
     public Long getSequenceNumber() {

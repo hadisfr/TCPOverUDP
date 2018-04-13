@@ -25,7 +25,7 @@ public class EnhancedDatagramSocket extends DatagramSocket {
 
     @Override
     public void send(DatagramPacket datagramPacket) throws IOException {
-        if(datagramPacket.getLength() > payloadLimitInBytes)
+        if (datagramPacket.getLength() > payloadLimitInBytes)
             throw new PayloadLimitViolationException(
                     String.format("Payload limit is %d bytes but sending packet contains %d bytes.",
                             payloadLimitInBytes,
@@ -34,10 +34,10 @@ public class EnhancedDatagramSocket extends DatagramSocket {
 
         currentSecondSentBytes.addAndGet(datagramPacket.getLength());
 
-        if(randomGenerator.nextDouble() <= lossRate)
+        if (randomGenerator.nextDouble() <= lossRate)
             return;
 
-        if(delayInMilliseconds != 0)
+        if (delayInMilliseconds != 0)
             scheduleToSend(datagramPacket);
         else
             super.send(datagramPacket);
@@ -48,7 +48,8 @@ public class EnhancedDatagramSocket extends DatagramSocket {
         super.close();
         try {
             Thread.sleep(SENT_BYTES_SAMPLING_PERIOD_IN_MILLISECONDS);
-        } catch (InterruptedException ignored) {}
+        } catch (InterruptedException ignored) {
+        }
         timer.cancel();
         saveSentBytesPerMillisecondPlot();
     }
@@ -58,7 +59,7 @@ public class EnhancedDatagramSocket extends DatagramSocket {
     }
 
     public void setPayloadLimitInBytes(int payloadLimitInBytes) {
-        if(payloadLimitInBytes < 0)
+        if (payloadLimitInBytes < 0)
             throw new RuntimeException("Payload limit cannot be negative.");
 
         this.payloadLimitInBytes = payloadLimitInBytes;
@@ -69,14 +70,14 @@ public class EnhancedDatagramSocket extends DatagramSocket {
     }
 
     public void setLossRate(double lossRate) {
-        if(lossRate < 0)
+        if (lossRate < 0)
             throw new RuntimeException("Loss rate cannot be negative.");
 
         this.lossRate = lossRate;
     }
 
     public void setDelayInMilliseconds(int delayInMilliseconds) {
-        if(delayInMilliseconds < 0)
+        if (delayInMilliseconds < 0)
             throw new RuntimeException("Delay cannot be negative.");
 
         this.delayInMilliseconds = delayInMilliseconds;
@@ -109,7 +110,7 @@ public class EnhancedDatagramSocket extends DatagramSocket {
             @Override
             public void run() {
                 try {
-                    if(!isClosed())
+                    if (!isClosed())
                         EnhancedDatagramSocket.super.send(datagramPacket);
                 } catch (IOException e) {
                     e.printStackTrace();
@@ -125,7 +126,7 @@ public class EnhancedDatagramSocket extends DatagramSocket {
                 currentTime += SENT_BYTES_SAMPLING_PERIOD_IN_MILLISECONDS;
                 plotData.xy(currentTime, currentSecondSentBytes.getAndSet(0));
 
-                if(!isClosed())
+                if (!isClosed())
                     scheduleToCollectPlotData();
             }
         }, SENT_BYTES_SAMPLING_PERIOD_IN_MILLISECONDS);
