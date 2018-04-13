@@ -1,5 +1,6 @@
 public class ConsoleLog {
     private static final Boolean verbose = true;
+    private static final Boolean veryVerbose = false;
     private static final Boolean fullColour = true;
 
     private static enum Colour {
@@ -17,7 +18,7 @@ public class ConsoleLog {
     }
 
     private static String beautify(String str, Colour colour) {
-        return colour + str + Colour.NC;
+        return fullColour ? colour + str + Colour.NC : str;
     }
 
     public static void log(String str) {
@@ -31,5 +32,10 @@ public class ConsoleLog {
 
     public static void connectionLog(String str) {
         log(beautify(str, Colour.CYAN));
+    }
+
+    public static void fileLog(String str) {
+        if (veryVerbose)
+            log(beautify(str, Colour.BLUE));
     }
 }

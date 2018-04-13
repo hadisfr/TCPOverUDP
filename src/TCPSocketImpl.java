@@ -1,3 +1,4 @@
+import java.io.*;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 
@@ -105,12 +106,29 @@ public class TCPSocketImpl extends TCPSocket {
 
     @Override
     public void send(String pathToFile) throws Exception {
-        this.send(pathToFile.getBytes());
+        File file = new File(pathToFile);
+        BufferedInputStream buffer = new BufferedInputStream(new FileInputStream(file));
+        int sentBytes = 0;
+        while (sentBytes < file.length()) {
+            byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes() - TCPPacket.dataOffsetByBytes];
+            sentBytes += buffer.read(data, 0, data.length);
+            ConsoleLog.fileLog(((float) sentBytes / file.length() * 100) + "%");
+            this.send(data);
+        }
+        this.send((byte[]) null);
+        buffer.close();
     }
 
     @Override
     public void receive(String pathToFile) throws Exception {
-        System.out.println("> " + new String(this.receive()));
+        BufferedOutputStream buffer = new BufferedOutputStream(new FileOutputStream(new File(pathToFile)));
+        while (true) {
+            byte[] data = this.receive();
+            if (data.length <= 1)
+                break;
+            buffer.write(data);
+        }
+        buffer.close();
     }
 
     @Override

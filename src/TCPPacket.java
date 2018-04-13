@@ -9,13 +9,14 @@ public class TCPPacket {
     private byte[] data;
 
     public static final int dataOffset = Long.SIZE + Long.SIZE + Byte.SIZE + Byte.SIZE + Integer.SIZE;
+    public static final int dataOffsetByBytes = dataOffset / Byte.SIZE + (dataOffset % Byte.SIZE != 0 ? 1 : 0);
 
     public int getSize() {
         return dataOffset + this.getDataLength() * Byte.SIZE;
     }
 
     public int getBytesNumber() {
-        return dataOffset / Byte.SIZE + (dataOffset % Byte.SIZE != 0 ? 1 : 0) + this.getDataLength();
+        return dataOffsetByBytes + this.getDataLength();
     }
 
     public TCPPacket(byte[] UDPData) {
