@@ -95,6 +95,7 @@ public class TCPSocketImpl extends TCPSocket {
         this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                 this.serverIp, this.serverPort));
         window.add(packet);
+        System.err.println("sent seq : " + seq);
         ackThread.addExpectedAck(seq + packet.getDataLength() + 1);
     }
 
@@ -103,6 +104,7 @@ public class TCPSocketImpl extends TCPSocket {
         this.UDPSocket.receive(new DatagramPacket(data, data.length));
         TCPPacket req = new TCPPacket(data);
         byte[] ret = null;
+        System.err.println("received seq : " + req.getSequenceNumber());
         if (req.getSequenceNumber() == this.expectedSeq) {
             this.expectedSeq += req.getDataLength() + 1;
             ret = req.getData();
