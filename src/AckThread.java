@@ -2,7 +2,7 @@ import java.io.IOException;
 import java.net.DatagramPacket;
 import java.util.ArrayList;
 
-public class AckThread extends Thread{
+public class AckThread extends Thread {
 
     private TCPSocketImpl socketImpl;
     private EnhancedDatagramSocket UDPSocket;
@@ -15,14 +15,14 @@ public class AckThread extends Thread{
         this.UDPSocket = UDPSocket;
     }
 
-    private int removeAcks(long ack){
+    private int removeAcks(long ack) {
         int i;
-        for(i = 0; i < expectedAcks.size(); i++){
-            if(ack < expectedAcks.get(i)){
+        for (i = 0; i < expectedAcks.size(); i++) {
+            if (ack < expectedAcks.get(i)) {
                 break;
             }
         }
-        for(int j = 0; j < i; j++)
+        for (int j = 0; j < i; j++)
             expectedAcks.remove(0);
         return i;
     }
@@ -36,31 +36,31 @@ public class AckThread extends Thread{
             ack = new TCPPacket(ackData);
         }
         int removedNo = removeAcks(ack.getAcknowledgementNumber());
-        if(removedNo != 0)
+        if (removedNo != 0)
             socketImpl.newAckReceived(removedNo);
         System.err.println("received ack : " + ack.getAcknowledgementNumber());
         socketImpl.setSeq(ack.getAcknowledgementNumber());
     }
 
-    public void addExpectedAck(long newAck){
+    public void addExpectedAck(long newAck) {
         int i;
-        for(i = 0; i < expectedAcks.size(); i++){
-            if(newAck < expectedAcks.get(i)){
+        for (i = 0; i < expectedAcks.size(); i++) {
+            if (newAck < expectedAcks.get(i)) {
                 break;
             }
         }
         expectedAcks.add(i, newAck);
     }
 
-    public void stopRunning(){
+    public void stopRunning() {
         shouldRun = false;
     }
 
     @Override
     public void run() {
         super.run();
-        while(shouldRun){
-            if(expectedAcks.size() > 0) {
+        while (shouldRun) {
+            if (expectedAcks.size() > 0) {
                 try {
                     receiveAck();
                 } catch (IOException e) {

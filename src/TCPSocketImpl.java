@@ -128,7 +128,7 @@ public class TCPSocketImpl extends TCPSocket {
             byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes() - TCPPacket.dataOffsetByBytes];
             sentBytes += buffer.read(data, 0, data.length);
             ConsoleLog.fileLog(((float) sentBytes / file.length() * 100) + "%");
-            while(window.size() >= windowSize); // TODO: spinlock must be replaced with sth more efficient
+            while (window.size() >= windowSize) ; // TODO: spinlock must be replaced with sth more efficient
             this.send(data);
         }
         this.send((byte[]) null);
@@ -170,12 +170,12 @@ public class TCPSocketImpl extends TCPSocket {
         this.seq = seq;
     }
 
-    public void newAckReceived(int packetsToMove){
-        if(packetsToMove > window.size()) {
+    public void newAckReceived(int packetsToMove) {
+        if (packetsToMove > window.size()) {
             window.clear();
             return;
         }
-        for(int i = 0; i < packetsToMove; i++)
+        for (int i = 0; i < packetsToMove; i++)
             window.remove(0);
     }
 }
