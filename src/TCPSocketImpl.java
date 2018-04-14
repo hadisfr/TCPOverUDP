@@ -164,6 +164,10 @@ public class TCPSocketImpl extends TCPSocket {
         return windowSize;
     }
 
+    public void setSeq(long seq) {
+        this.seq = seq;
+    }
+
     public void newAckReceived(int packetsToMove){
         if(packetsToMove > window.size()) {
             window.clear();
