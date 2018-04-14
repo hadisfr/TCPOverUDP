@@ -115,6 +115,7 @@ public class TCPSocketImpl extends TCPSocket {
         TCPPacket res = new TCPPacket(seq++, this.expectedSeq, true, false, null);
         this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(),
                 this.serverIp, this.serverPort));
+        System.err.println("sent ack : " + this.expectedSeq);
         return ret;
     }
 

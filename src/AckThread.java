@@ -39,9 +39,11 @@ public class AckThread extends Thread {
         socketImpl.setSeq(ack.getAcknowledgementNumber());
         if (removedNo != 0)
             socketImpl.newAckReceived(removedNo);
+        System.err.println("received ack : " + ack.getAcknowledgementNumber() + " remove " + removedNo);
     }
 
     public void addExpectedAck(long newAck) {
+        System.err.println("new ack : " + newAck);
         int i;
         for (i = 0; i < expectedAcks.size(); i++) {
             if (newAck < expectedAcks.get(i)) {
