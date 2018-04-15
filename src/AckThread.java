@@ -22,8 +22,6 @@ public class AckThread extends Thread{
                 break;
             }
         }
-        for(int j = 0; j < i; j++)
-            expectedAcks.remove(0);
         return i;
     }
 
@@ -38,7 +36,6 @@ public class AckThread extends Thread{
         int removedNo = removeAcks(ack.getAcknowledgementNumber());
         if(removedNo != 0)
             socketImpl.newAckReceived(removedNo);
-        socketImpl.setSeq(ack.getAcknowledgementNumber());
     }
 
     public void addExpectedAck(long newAck){
