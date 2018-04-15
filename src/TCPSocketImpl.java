@@ -1,6 +1,8 @@
 import java.io.*;
+import java.lang.reflect.Array;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
+import java.util.ArrayList;
 
 public class TCPSocketImpl extends TCPSocket {
     private EnhancedDatagramSocket UDPSocket;
@@ -8,10 +10,12 @@ public class TCPSocketImpl extends TCPSocket {
     private int serverPort;
 
     private final long SSThreshold = 0;
-    private final long windowSize = 1;
     private long seq = 100;
     private long expectedSeq;
     private long expectedAck;
+
+    private long windowSize = 1;
+    private ArrayList<TCPPacket> window = new ArrayList<>();
 
     public enum State {
         NONE,  // client
@@ -85,23 +89,49 @@ public class TCPSocketImpl extends TCPSocket {
         ConsoleLog.handshakingLog("Handshaking: received 3/3");
     }
 
-    private void send(byte[] data) throws Exception {
-        TCPPacket ack = null;
-        while (ack == null || !(ack.getACK() && ack.getAcknowledgementNumber() >= this.expectedAck)) {
-            if (ack != null) {
-                System.err.println("Invalid TCP Package");
-                System.err.println("ack: " + ack.getAcknowledgementNumber() + " exp:" + this.expectedAck);
-                // TODO: should do nothing and resend data with timer
-            }
-            TCPPacket packet = new TCPPacket(seq, data);
-            this.expectedAck = seq + packet.getDataLength() + 1;
+    private void send(ArrayList<TCPPacket> packets) throws Exception {
+//        TCPPacket ack = null;
+//        while (ack == null || !(ack.getACK() && ack.getAcknowledgementNumber() >= this.expectedAck)) {
+//            if (ack != null) {
+//                System.err.println("Invalid TCP Package");
+//                System.err.println("ack: " + ack.getAcknowledgementNumber() + " exp:" + this.expectedAck);
+//            }
+//            TCPPacket packet = new TCPPacket(seq, data);
+//            this.expectedAck = seq + packet.getDataLength() + 1;
+//            this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
+//                    this.serverIp, this.serverPort));
+//            byte[] ackData = new byte[this.UDPSocket.getPayloadLimitInBytes()];
+//            UDPSocket.receive(new DatagramPacket(ackData, ackData.length));
+//            ack = new TCPPacket(ackData);
+//        }
+//        this.seq = ack.getAcknowledgementNumber();
+        for (TCPPacket packet : packets) {
             this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                     this.serverIp, this.serverPort));
-            byte[] ackData = new byte[this.UDPSocket.getPayloadLimitInBytes()];
-            UDPSocket.receive(new DatagramPacket(ackData, ackData.length));
-            ack = new TCPPacket(ackData);
         }
-        this.seq = ack.getAcknowledgementNumber();
+    }
+
+    private void ackReceive() throws IOException {
+        TCPPacket ack = null;
+        while(true) {
+            while (ack == null || !(ack.getACK() /*&& ack.getAcknowledgementNumber() >= this.expectedAck*/)) {
+                byte[] ackData = new byte[this.UDPSocket.getPayloadLimitInBytes()];
+                UDPSocket.receive(new DatagramPacket(ackData, ackData.length));
+                ack = new TCPPacket(ackData);
+            }
+            int i;
+            long currAck = ack.getAcknowledgementNumber();
+            for (i = 0; i < window.size(); i++){
+                TCPPacket currPacket = window.get(i);
+                if(currAck < currPacket.getSequenceNumber() + currPacket.getDataLength() + 1)
+                    break;
+            }
+            if(i == 0)
+                continue;
+            for(int j = 0; j < i; j++)
+                window.remove(0);
+            break;
+        }
     }
 
     private byte[] receive() throws Exception {
@@ -126,14 +156,25 @@ public class TCPSocketImpl extends TCPSocket {
     public void send(String pathToFile) throws Exception {
         File file = new File(pathToFile);
         BufferedInputStream buffer = new BufferedInputStream(new FileInputStream(file));
+        ArrayList<TCPPacket> packets = new ArrayList<>();
         int sentBytes = 0;
         while (sentBytes < file.length()) {
-            byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes() - TCPPacket.dataOffsetByBytes];
-            sentBytes += buffer.read(data, 0, data.length);
+            packets.clear();
+            for (int i = 0; i < windowSize - window.size() && sentBytes < file.length(); i++) {
+                byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes() - TCPPacket.dataOffsetByBytes];
+                sentBytes += buffer.read(data, 0, data.length);
+                TCPPacket packet = new TCPPacket(seq, data);
+                packets.add(packet);
+                seq += packet.getDataLength() + 1;
+            }
             ConsoleLog.fileLog(((float) sentBytes / file.length() * 100) + "%");
-            this.send(data);
+            window.addAll(packets);
+            this.send(packets);
+            ackReceive();
         }
-        this.send((byte[]) null);
+        packets.clear();
+        packets.add(new TCPPacket((long) seq, (byte[]) null));
+        this.send(packets);
         buffer.close();
     }
 
