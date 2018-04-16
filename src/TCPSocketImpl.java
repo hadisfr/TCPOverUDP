@@ -90,21 +90,6 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     private void send(ArrayList<TCPPacket> packets) throws Exception {
-//        TCPPacket ack = null;
-//        while (ack == null || !(ack.getACK() && ack.getAcknowledgementNumber() >= this.expectedAck)) {
-//            if (ack != null) {
-//                System.err.println("Invalid TCP Package");
-//                System.err.println("ack: " + ack.getAcknowledgementNumber() + " exp:" + this.expectedAck);
-//            }
-//            TCPPacket packet = new TCPPacket(seq, data);
-//            this.expectedAck = seq + packet.getDataLength() + 1;
-//            this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
-//                    this.serverIp, this.serverPort));
-//            byte[] ackData = new byte[this.UDPSocket.getPayloadLimitInBytes()];
-//            UDPSocket.receive(new DatagramPacket(ackData, ackData.length));
-//            ack = new TCPPacket(ackData);
-//        }
-//        this.seq = ack.getAcknowledgementNumber();
         for (TCPPacket packet : packets) {
             this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                     this.serverIp, this.serverPort));
@@ -113,7 +98,7 @@ public class TCPSocketImpl extends TCPSocket {
 
     private void ackReceive() throws IOException {
         TCPPacket ack = null;
-        while(true) {
+        while (true) {
             while (ack == null || !(ack.getACK() /*&& ack.getAcknowledgementNumber() >= this.expectedAck*/)) {
                 byte[] ackData = new byte[this.UDPSocket.getPayloadLimitInBytes()];
                 UDPSocket.receive(new DatagramPacket(ackData, ackData.length));
@@ -121,14 +106,14 @@ public class TCPSocketImpl extends TCPSocket {
             }
             int i;
             long currAck = ack.getAcknowledgementNumber();
-            for (i = 0; i < window.size(); i++){
+            for (i = 0; i < window.size(); i++) {
                 TCPPacket currPacket = window.get(i);
-                if(currAck < currPacket.getSequenceNumber() + currPacket.getDataLength() + 1)
+                if (currAck < currPacket.getSequenceNumber() + currPacket.getDataLength() + 1)
                     break;
             }
-            if(i == 0)
+            if (i == 0)
                 continue;
-            for(int j = 0; j < i; j++)
+            for (int j = 0; j < i; j++)
                 window.remove(0);
             break;
         }
