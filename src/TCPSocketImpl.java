@@ -3,6 +3,8 @@ import java.lang.reflect.Array;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Timer;
+import java.util.TimerTask;
 
 public class TCPSocketImpl extends TCPSocket {
     private EnhancedDatagramSocket UDPSocket;
@@ -12,10 +14,12 @@ public class TCPSocketImpl extends TCPSocket {
     private final long SSThreshold = 0;
     private long seq = 100;
     private long expectedSeq;
-    private long expectedAck;
+    private int timeout = 2000;
 
-    private long windowSize = 1;
+    private int windowSize = 1;
     private ArrayList<TCPPacket> window = new ArrayList<>();
+
+    Timer timer = new Timer();
 
     public enum State {
         NONE,  // client
@@ -113,6 +117,7 @@ public class TCPSocketImpl extends TCPSocket {
             }
             if (i == 0)
                 continue;
+            timer.cancel();
             for (int j = 0; j < i; j++)
                 window.remove(0);
             break;
@@ -154,6 +159,17 @@ public class TCPSocketImpl extends TCPSocket {
             }
             ConsoleLog.fileLog(((float) sentBytes / file.length() * 100) + "%");
             window.addAll(packets);
+            timer = new Timer();
+            timer.schedule(new TimerTask() {
+                @Override
+                public void run() {
+                    try {
+                        send(window);
+                    } catch (Exception e) {
+                        e.printStackTrace();
+                    }
+                }
+            }, timeout);
             this.send(packets);
             ackReceive();
         }
