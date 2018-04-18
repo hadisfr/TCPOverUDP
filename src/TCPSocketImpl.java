@@ -19,7 +19,7 @@ public class TCPSocketImpl extends TCPSocket {
     private int windowSize = 1;
     private ArrayList<TCPPacket> window = new ArrayList<>();
 
-    Timer timer = new Timer();
+    Timer timer;
 
     public enum State {
         NONE,  // client
@@ -196,7 +196,6 @@ public class TCPSocketImpl extends TCPSocket {
     @Override
     public void close() throws Exception {
         this.UDPSocket.close();
-        timer.cancel();
         ConsoleLog.connectionLog("Client is down.");
     }
 
