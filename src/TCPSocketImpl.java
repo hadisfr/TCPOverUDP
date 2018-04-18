@@ -174,7 +174,7 @@ public class TCPSocketImpl extends TCPSocket {
             ackReceive();
         }
         packets.clear();
-        packets.add(new TCPPacket((long) seq, (byte[]) null));
+        packets.add(new TCPPacket(seq, null));
         this.send(packets);
         buffer.close();
     }
@@ -196,6 +196,7 @@ public class TCPSocketImpl extends TCPSocket {
     @Override
     public void close() throws Exception {
         this.UDPSocket.close();
+        timer.cancel();
         ConsoleLog.connectionLog("Client is down.");
     }
 
