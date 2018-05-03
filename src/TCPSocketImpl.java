@@ -10,11 +10,11 @@ public class TCPSocketImpl extends TCPSocket {
     private InetAddress serverIp;
     private int serverPort;
 
-    private final long SSThreshold;
+    private int SSThreshold;
     private long seq = 100;
     private long expectedSeq;
     private final int timeout = 2000;
-
+    private int duplicateAcks = 0;
     private int windowSize;
     private int lastSentIndex;
     private ArrayList<TCPPacket> window = new ArrayList<>();
@@ -41,6 +41,7 @@ public class TCPSocketImpl extends TCPSocket {
         this.lastSentIndex = -1;
         this.SSThreshold = 0;
         this.windowSize = 1;
+        this.duplicateAcks = 0;
         ConsoleLog.connectionLog(String.format("Client is up on port %d and is connected to %s:%d.",
                 this.UDPSocket.getLocalPort(), this.serverIp, this.serverPort));
     }
@@ -98,6 +99,16 @@ public class TCPSocketImpl extends TCPSocket {
         ConsoleLog.handshakingLog("Handshaking: received 3/3");
     }
 
+    public int getMSS() {
+        return this.UDPSocket.getPayloadLimitInBytes() + TCPPacket.dataOffsetByBytes;
+    }
+
+    public void handleLoss() {
+        this.state = State.SLOW_START;
+        this.SSThreshold = this.windowSize / 2;
+        this.windowSize = 1;
+    }
+
     private void send(boolean isResend) throws Exception {
         timer = new Timer();
         timer.schedule(new TimerTask() {
@@ -105,6 +116,7 @@ public class TCPSocketImpl extends TCPSocket {
             public void run() {
                 try {
                     send(true);
+                    handleLoss();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
@@ -138,12 +150,24 @@ public class TCPSocketImpl extends TCPSocket {
                 if (ack.getAcknowledgementNumber()
                         < window.get(firstUnackedPacketIndex).getExpectedAcknowledgementNumber())
                     break;
-            if (firstUnackedPacketIndex == 0)
+            if (firstUnackedPacketIndex == 0) {
+                handleLoss();
                 continue;
+            }
             timer.cancel();
             for (int j = 0; j < firstUnackedPacketIndex; j++) {
                 window.remove(0);
                 this.lastSentIndex--;
+                switch (this.state) {
+                    case CONGESTION_AVOIDANCE:
+                        this.windowSize += this.getMSS() * this.getMSS() / this.windowSize;
+                        break;
+                    case SLOW_START:
+                        this.windowSize += this.getMSS();
+                        if (this.windowSize > this.SSThreshold)
+                            this.state = State.CONGESTION_AVOIDANCE;
+                        break;
+                }
             }
             break;
         }
