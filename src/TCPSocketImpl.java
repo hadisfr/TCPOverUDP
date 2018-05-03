@@ -94,6 +94,17 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     private void send(ArrayList<TCPPacket> packets) throws Exception {
+        timer = new Timer();
+        timer.schedule(new TimerTask() {
+            @Override
+            public void run() {
+                try {
+                    send(window);
+                } catch (Exception e) {
+                    e.printStackTrace();
+                }
+            }
+        }, timeout);
         for (TCPPacket packet : packets) {
             this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                     this.serverIp, this.serverPort));
@@ -103,7 +114,7 @@ public class TCPSocketImpl extends TCPSocket {
     private void ackReceive() throws IOException {
         TCPPacket ack = null;
         while (true) {
-            while (ack == null || !(ack.getACK() /*&& ack.getAcknowledgementNumber() >= this.expectedAck*/)) {
+            while (ack == null || !(ack.getACK())) {
                 byte[] ackData = new byte[this.UDPSocket.getPayloadLimitInBytes()];
                 UDPSocket.receive(new DatagramPacket(ackData, ackData.length));
                 ack = new TCPPacket(ackData);
@@ -159,17 +170,6 @@ public class TCPSocketImpl extends TCPSocket {
             }
             ConsoleLog.fileLog(((float) sentBytes / file.length() * 100) + "%");
             window.addAll(packets);
-            timer = new Timer();
-            timer.schedule(new TimerTask() {
-                @Override
-                public void run() {
-                    try {
-                        send(window);
-                    } catch (Exception e) {
-                        e.printStackTrace();
-                    }
-                }
-            }, timeout);
             this.send(packets);
             ackReceive();
         }
