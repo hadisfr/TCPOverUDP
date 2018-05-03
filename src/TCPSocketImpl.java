@@ -25,7 +25,9 @@ public class TCPSocketImpl extends TCPSocket {
         NONE,  // client
         SYN_SENT,  // client
         SYN_RECEIVED,  // server
-        ESTABLISHED  // both sides
+        ESTABLISHED,  // client
+        SLOW_START,  // server
+        CONGESTION_AVOIDANCE  // server
     }
 
     private State state;
@@ -65,7 +67,7 @@ public class TCPSocketImpl extends TCPSocket {
         ConsoleLog.connectionLog(String.format("Client now is connected to %s:%d.",
                 this.serverIp, this.serverPort));
         this.expectedSeq = req.getSequenceNumber() + 1;
-        this.state = State.ESTABLISHED;
+        this.state = State.SLOW_START;
         ConsoleLog.handshakingLog("Handshaking: received 2/3");
         TCPPacket res = new TCPPacket(seq++, req.getSequenceNumber() + 1,
                 true, false, null);
