@@ -69,6 +69,10 @@ public class TCPPacket {
         return dataLength;
     }
 
+    public long getExpectedAcknowledgementNumber() {
+        return this.getSequenceNumber() + this.getDataLength() + 1;
+    }
+
     public byte[] toUDPData() {
         ByteBuffer res = ByteBuffer.allocate(this.getBytesNumber());
         res.putLong(this.sequenceNumber);

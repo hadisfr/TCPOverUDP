@@ -1,6 +1,6 @@
 public class ConsoleLog {
     private static final Boolean verbose = true;
-    private static final Boolean veryVerbose = false;
+    private static final Boolean veryVerbose = true;
     private static final Boolean fullColour = true;
 
     private static enum Colour {
@@ -37,5 +37,10 @@ public class ConsoleLog {
     public static void fileLog(String str) {
         if (veryVerbose)
             log(beautify(str, Colour.BLUE));
+    }
+
+    public static void windowLog(String str) {
+        if (veryVerbose)
+            log(beautify(str, Colour.YELLOW));
     }
 }

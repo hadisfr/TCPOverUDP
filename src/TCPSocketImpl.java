@@ -1,5 +1,4 @@
 import java.io.*;
-import java.lang.reflect.Array;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.util.ArrayList;
@@ -11,15 +10,16 @@ public class TCPSocketImpl extends TCPSocket {
     private InetAddress serverIp;
     private int serverPort;
 
-    private final long SSThreshold = 0;
+    private final long SSThreshold;
     private long seq = 100;
     private long expectedSeq;
-    private int timeout = 2000;
+    private final int timeout = 2000;
 
-    private int windowSize = 1;
+    private int windowSize;
+    private int lastSentIndex;
     private ArrayList<TCPPacket> window = new ArrayList<>();
 
-    Timer timer;
+    private Timer timer;
 
     public enum State {
         NONE,  // client
@@ -36,6 +36,9 @@ public class TCPSocketImpl extends TCPSocket {
         this.serverIp = InetAddress.getByName(ip);
         this.serverPort = port;
         this.state = state;
+        this.lastSentIndex = -1;
+        this.SSThreshold = 0;
+        this.windowSize = 1;
         ConsoleLog.connectionLog(String.format("Client is up on port %d and is connected to %s:%d.",
                 this.UDPSocket.getLocalPort(), this.serverIp, this.serverPort));
     }
@@ -93,22 +96,31 @@ public class TCPSocketImpl extends TCPSocket {
         ConsoleLog.handshakingLog("Handshaking: received 3/3");
     }
 
-    private void send(ArrayList<TCPPacket> packets) throws Exception {
+    private void send(boolean isResend) throws Exception {
         timer = new Timer();
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
                 try {
-                    send(window);
+                    send(true);
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
         }, timeout);
-        for (TCPPacket packet : packets) {
+        for (int i = isResend ? 0 : (this.lastSentIndex + 1); i < windowSize && i < window.size(); i++) {
+            ConsoleLog.windowLog(String.format("windowSize: %d,\twindow.size: %d,\tlastSentIndex:%d%s,\tindex: %d",
+                    this.windowSize, this.window.size(), this.lastSentIndex, isResend ? " (RESEND)" : "", i));
+            TCPPacket packet = window.get(i);
             this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                     this.serverIp, this.serverPort));
+            if (!isResend)
+                this.lastSentIndex = i;
         }
+    }
+
+    private void send() throws Exception {
+        send(false);
     }
 
     private void ackReceive() throws IOException {
@@ -119,18 +131,18 @@ public class TCPSocketImpl extends TCPSocket {
                 UDPSocket.receive(new DatagramPacket(ackData, ackData.length));
                 ack = new TCPPacket(ackData);
             }
-            int i;
-            long currAck = ack.getAcknowledgementNumber();
-            for (i = 0; i < window.size(); i++) {
-                TCPPacket currPacket = window.get(i);
-                if (currAck < currPacket.getSequenceNumber() + currPacket.getDataLength() + 1)
+            int firstUnackedPacketIndex;
+            for (firstUnackedPacketIndex = 0; firstUnackedPacketIndex < window.size(); firstUnackedPacketIndex++)
+                if (ack.getAcknowledgementNumber()
+                        < window.get(firstUnackedPacketIndex).getExpectedAcknowledgementNumber())
                     break;
-            }
-            if (i == 0)
+            if (firstUnackedPacketIndex == 0)
                 continue;
             timer.cancel();
-            for (int j = 0; j < i; j++)
+            for (int j = 0; j < firstUnackedPacketIndex; j++) {
                 window.remove(0);
+                this.lastSentIndex--;
+            }
             break;
         }
     }
@@ -157,30 +169,41 @@ public class TCPSocketImpl extends TCPSocket {
     public void send(String pathToFile) throws Exception {
         File file = new File(pathToFile);
         BufferedInputStream buffer = new BufferedInputStream(new FileInputStream(file));
-        ArrayList<TCPPacket> packets = new ArrayList<>();
-        int sentBytes = 0;
-        while (sentBytes < file.length()) {
-            packets.clear();
-            for (int i = 0; i < windowSize - window.size() && sentBytes < file.length(); i++) {
+        ArrayList<TCPPacket> packets = new ArrayList<TCPPacket>();
+        ConsoleLog.fileLog("Start sending " + pathToFile);
+        int readBytes = 0;
+        while (readBytes < file.length()) {
+            ConsoleLog.fileLog(String.format("windowSize: %d,\twindow.size: %d,\tlastSentIndex:%d",
+                    this.windowSize, this.window.size(), this.lastSentIndex));
+            for (int i = 0; windowSize > lastSentIndex + i + 1 && readBytes < file.length(); i++) {
+                packets.clear();
                 byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes() - TCPPacket.dataOffsetByBytes];
-                sentBytes += buffer.read(data, 0, data.length);
+                readBytes += buffer.read(data, 0, data.length);
                 TCPPacket packet = new TCPPacket(seq, data);
                 packets.add(packet);
                 seq += packet.getDataLength() + 1;
             }
-            ConsoleLog.fileLog(((float) sentBytes / file.length() * 100) + "%");
             window.addAll(packets);
-            this.send(packets);
+            this.send();
+            ConsoleLog.fileLog(String.format("windowSize: %d,\twindow.size: %d,\tlastSentIndex:%d",
+                    this.windowSize, this.window.size(), this.lastSentIndex));
+            ConsoleLog.fileLog(((float) readBytes / file.length() * 100) + "%");
             ackReceive();
         }
-        packets.clear();
-        packets.add(new TCPPacket(seq, null));
-        this.send(packets);
         buffer.close();
+        TCPPacket finPacket = new TCPPacket(seq, null);
+        seq += finPacket.getDataLength() + 1;
+        window.add(finPacket);
+        while (window.size() > 0) {
+            this.send();
+            ackReceive();
+        }
+        ConsoleLog.fileLog("End sending " + pathToFile);
     }
 
     @Override
     public void receive(String pathToFile) throws Exception {
+        ConsoleLog.fileLog("Start receiving " + pathToFile);
         BufferedOutputStream buffer = new BufferedOutputStream(new FileOutputStream(new File(pathToFile)));
         while (true) {
             byte[] data = this.receive();
@@ -191,6 +214,7 @@ public class TCPSocketImpl extends TCPSocket {
             buffer.write(data);
         }
         buffer.close();
+        ConsoleLog.fileLog("End receiving " + pathToFile);
     }
 
     @Override
