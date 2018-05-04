@@ -128,8 +128,14 @@ public class TCPSocketImpl extends TCPSocket {
         for (int i = isResend ? 0 : (this.lastSentIndex + 1); i < windowSize && i < window.size(); i++) {
             ConsoleLog.windowLog(String.format(
                     "windowSize: %f,\twindow.size: %d,\tlastSentIndex:%d%s,\tindex: %d,\tSST: %d,\tstatus: %s",
-                    this.windowSize, this.window.size(), this.lastSentIndex, isResend ? " (RESEND)" : "", i, this.SSThreshold,
-                    (this.state == State.CONGESTION_AVOIDANCE ? "CA" : this.state == State.SLOW_START ? "SS" : "UNK")));
+                    this.windowSize,
+                    this.window.size(),
+                    this.lastSentIndex,
+                    isResend ? " (RESEND)" : "",
+                    i,
+                    this.SSThreshold,
+                    this.state == State.CONGESTION_AVOIDANCE ? "CA" : this.state == State.SLOW_START ? "SS" : "UNK"
+            ));
             TCPPacket packet = window.get(i);
             this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                     this.serverIp, this.serverPort));
@@ -168,6 +174,7 @@ public class TCPSocketImpl extends TCPSocket {
                 }
                 continue;
             }
+            this.duplicateAcks = 0;
             timer.cancel();
             for (int j = 0; j < firstUnackedPacketIndex; j++) {
                 window.remove(0);
