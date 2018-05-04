@@ -154,14 +154,13 @@ public class TCPSocketImpl extends TCPSocket {
         this.window.addAll(packets);
     }
 
-    private void send(boolean isResend) throws Exception {
-        for (int i = isResend ? 0 : (this.lastSentIndex + 1); i < windowSize && i < window.size(); i++) {
+    private void send() throws Exception {
+        for (int i = this.lastSentIndex + 1; i < windowSize && i < window.size(); i++) {
             ConsoleLog.windowLog(String.format(
-                    "windowSize: %f,\twindow.size: %d,\tlastSentIndex:%d%s,\tindex: %d,\tSST: %d,\tstatus: %s",
+                    "windowSize: %f,\twindow.size: %d,\tlastSentIndex:%d,\tindex: %d,\tSST: %d,\tstatus: %s",
                     this.windowSize,
                     this.window.size(),
                     this.lastSentIndex,
-                    isResend ? " (RESEND)" : "",
                     i,
                     this.SSThreshold,
                     this.state == State.CONGESTION_AVOIDANCE ? "CA" : this.state == State.SLOW_START ? "SS" : "UNK"
@@ -170,13 +169,8 @@ public class TCPSocketImpl extends TCPSocket {
             this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                     this.serverIp, this.serverPort));
             ConsoleLog.fileLog("This sent packet is: " + packet.getSequenceNumber());
-            if (!isResend)
-                this.lastSentIndex = i;
+            this.lastSentIndex = i;
         }
-    }
-
-    private void send() throws Exception {
-        send(false);
     }
 
     private void ackReceive() throws Exception {
@@ -197,7 +191,6 @@ public class TCPSocketImpl extends TCPSocket {
                 duplicateAcks++;
                 if (duplicateAcks == 3) {
                     this.handleLoss();
-//                    this.duplicateAcks = 0;
                 }
                 continue;
             }
@@ -239,14 +232,6 @@ public class TCPSocketImpl extends TCPSocket {
         this.UDPSocket.send(new DatagramPacket(res.toUDPData(), res.getBytesNumber(),
                 this.serverIp, this.serverPort));
         return ret;
-    }
-
-    private void printWindow() {
-        String result = "";
-        for (TCPPacket p : window) {
-            result += p.getSequenceNumber() + ", ";
-        }
-        ConsoleLog.fileLog("Window : " + result);
     }
 
     @Override
