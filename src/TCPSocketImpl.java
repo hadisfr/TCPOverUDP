@@ -2,6 +2,7 @@ import java.io.*;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Timer;
 import java.util.TimerTask;
 
@@ -11,6 +12,7 @@ public class TCPSocketImpl extends TCPSocket {
     private int serverPort;
 
     private int SSThreshold;
+    private static final int DefaultSSThreshold = 0;
     private long seq = 100;
     private long expectedSeq;
     private final int timeout = 2000;
@@ -39,8 +41,8 @@ public class TCPSocketImpl extends TCPSocket {
         this.serverPort = port;
         this.state = state;
         this.lastSentIndex = -1;
-        this.SSThreshold = 0;
-        this.windowSize = 1;
+        this.SSThreshold = DefaultSSThreshold;
+        this.windowSize = this.getMSS();
         this.duplicateAcks = 0;
         this.onWindowChange();
         ConsoleLog.connectionLog(String.format("Client is up on port %d and is connected to %s:%d.",
@@ -105,26 +107,54 @@ public class TCPSocketImpl extends TCPSocket {
         return 1;
     }
 
-    public void handleLoss() {
+    public void handleLoss() throws Exception {
+        ConsoleLog.windowLog("-> SS (LOSS)");
         this.state = State.SLOW_START;
         this.SSThreshold = (int) (this.windowSize / 2);
         this.windowSize = 1;
         this.onWindowChange();
+        this.lastSentIndex = -1;
+        this.send();
     }
 
-    private void send(boolean isResend) throws Exception {
+    private void resetTimer() {
+        if (timer != null)
+            timer.cancel();
         timer = new Timer();
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
                 try {
-                    send(true);
+                    ConsoleLog.windowLog("TIME_OUT");
                     handleLoss();
                 } catch (Exception e) {
                     e.printStackTrace();
                 }
             }
         }, timeout);
+    }
+
+    private void windowPop() {
+        resetTimer();
+        window.remove(0);
+        this.lastSentIndex--;
+        if (timer != null && this.window.size() == 0)
+            timer.cancel();
+    }
+
+    private void windowPush(TCPPacket packet) {
+        if (this.window.size() == 0)
+            resetTimer();
+        this.window.add(packet);
+    }
+
+    private void windowPush(Collection<? extends TCPPacket> packets) {
+        if (this.window.size() == 0)
+            resetTimer();
+        this.window.addAll(packets);
+    }
+
+    private void send(boolean isResend) throws Exception {
         for (int i = isResend ? 0 : (this.lastSentIndex + 1); i < windowSize && i < window.size(); i++) {
             ConsoleLog.windowLog(String.format(
                     "windowSize: %f,\twindow.size: %d,\tlastSentIndex:%d%s,\tindex: %d,\tSST: %d,\tstatus: %s",
@@ -139,7 +169,7 @@ public class TCPSocketImpl extends TCPSocket {
             TCPPacket packet = window.get(i);
             this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                     this.serverIp, this.serverPort));
-            ConsoleLog.fileLog("This sent packet is : " + packet.getSequenceNumber());
+            ConsoleLog.fileLog("This sent packet is: " + packet.getSequenceNumber());
             if (!isResend)
                 this.lastSentIndex = i;
         }
@@ -149,7 +179,7 @@ public class TCPSocketImpl extends TCPSocket {
         send(false);
     }
 
-    private void ackReceive() throws IOException {
+    private void ackReceive() throws Exception {
         TCPPacket ack;
         while (true) {
             ack = null;
@@ -164,34 +194,31 @@ public class TCPSocketImpl extends TCPSocket {
                         < window.get(firstUnackedPacketIndex).getExpectedAcknowledgementNumber())
                     break;
             if (firstUnackedPacketIndex == 0) {
-//                ConsoleLog.fileLog("received ack : " + ack.getAcknowledgementNumber() + " dup ack : " + duplicateAcks);
-                if (this.state == State.CONGESTION_AVOIDANCE) {
-                    duplicateAcks++;
-                    if (duplicateAcks >= 3) {
-                        this.handleLoss();
-                        this.duplicateAcks = 0;
-                    }
+                duplicateAcks++;
+                if (duplicateAcks == 3) {
+                    this.handleLoss();
+//                    this.duplicateAcks = 0;
                 }
                 continue;
             }
             this.duplicateAcks = 0;
-            timer.cancel();
             for (int j = 0; j < firstUnackedPacketIndex; j++) {
-                window.remove(0);
-                this.lastSentIndex--;
+                this.windowPop();
                 switch (this.state) {
                     case CONGESTION_AVOIDANCE:
                         this.windowSize += this.getMSS() * this.getMSS() / this.windowSize;
                         break;
                     case SLOW_START:
                         this.windowSize += this.getMSS();
-                        if (this.windowSize > this.SSThreshold)
+                        if (this.windowSize > this.SSThreshold) {
+                            ConsoleLog.windowLog(String.format("-> CA,\twindowSize: %f,\tSST: %d",
+                                    this.windowSize, this.SSThreshold));
                             this.state = State.CONGESTION_AVOIDANCE;
+                        }
                         break;
                 }
                 this.onWindowChange();
             }
-            ConsoleLog.fileLog("Window size: " + this.windowSize);
             break;
         }
     }
@@ -230,8 +257,6 @@ public class TCPSocketImpl extends TCPSocket {
         ConsoleLog.fileLog("Start sending " + pathToFile);
         int readBytes = 0;
         while (readBytes < file.length()) {
-            ConsoleLog.fileLog(String.format("windowSize: %f,\twindow.size: %d,\tlastSentIndex:%d",
-                    this.windowSize, this.window.size(), this.lastSentIndex));
             packets.clear();
             for (int i = 0; windowSize > lastSentIndex + i + 1 && readBytes < file.length(); i++) {
                 byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes() - TCPPacket.dataOffsetByBytes];
@@ -240,17 +265,17 @@ public class TCPSocketImpl extends TCPSocket {
                 packets.add(packet);
                 seq += packet.getDataLength() + 1;
             }
-            window.addAll(packets);
+            this.windowPush(packets);
             this.send();
-            ConsoleLog.fileLog(String.format("windowSize: %f,\twindow.size: %d,\tlastSentIndex:%d",
+            ConsoleLog.fileLog(String.format("%f%%,\twindowSize: %f,\twindow.size: %d,\tlastSentIndex:%d",
+                    ((float) readBytes / file.length() * 100),
                     this.windowSize, this.window.size(), this.lastSentIndex));
-            ConsoleLog.fileLog(((float) readBytes / file.length() * 100) + "%");
             ackReceive();
         }
         buffer.close();
         TCPPacket finPacket = new TCPPacket(seq, null);
         seq += finPacket.getDataLength() + 1;
-        window.add(finPacket);
+        this.windowPush(finPacket);
         while (window.size() > 0) {
             this.send();
             ackReceive();
