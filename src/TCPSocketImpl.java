@@ -126,8 +126,9 @@ public class TCPSocketImpl extends TCPSocket {
             }
         }, timeout);
         for (int i = isResend ? 0 : (this.lastSentIndex + 1); i < windowSize && i < window.size(); i++) {
-            ConsoleLog.windowLog(String.format("windowSize: %f,\twindow.size: %d,\tlastSentIndex:%d%s,\tindex: %d",
-                    this.windowSize, this.window.size(), this.lastSentIndex, isResend ? " (RESEND)" : "", i));
+            ConsoleLog.windowLog(String.format("windowSize: %f,\twindow.size: %d,\tlastSentIndex:%d%s,\tindex: %d,\tstatus: %s",
+                    this.windowSize, this.window.size(), this.lastSentIndex, isResend ? " (RESEND)" : "", i,
+                    (this.state == State.CONGESTION_AVOIDANCE ? "CA" : this.state == State.SLOW_START ? "SS" : "UNK")));
             TCPPacket packet = window.get(i);
             this.UDPSocket.send(new DatagramPacket(packet.toUDPData(), packet.getBytesNumber(),
                     this.serverIp, this.serverPort));
