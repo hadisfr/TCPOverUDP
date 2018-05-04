@@ -14,7 +14,7 @@ public class TCPSocketImpl extends TCPSocket {
     private long seq = 100;
     private long expectedSeq;
     private final int timeout = 2000;
-    private int duplicateAcks = 0;
+    private int duplicateAcks;
     private float windowSize;
     private int lastSentIndex;
     private ArrayList<TCPPacket> window = new ArrayList<>();
@@ -155,7 +155,13 @@ public class TCPSocketImpl extends TCPSocket {
                         < window.get(firstUnackedPacketIndex).getExpectedAcknowledgementNumber())
                     break;
             if (firstUnackedPacketIndex == 0) {
-                handleLoss();
+                if (this.state == State.CONGESTION_AVOIDANCE) {
+                    duplicateAcks++;
+                    if (duplicateAcks >= 3) {
+                        this.handleLoss();
+                        this.duplicateAcks = 0;
+                    }
+                }
                 continue;
             }
             timer.cancel();
@@ -166,7 +172,6 @@ public class TCPSocketImpl extends TCPSocket {
                     case CONGESTION_AVOIDANCE:
 //                        ConsoleLog.fileLog("Before: " + this.windowSize);
                         this.windowSize += this.getMSS() * this.getMSS() / this.windowSize;
-
 //                        ConsoleLog.fileLog("After: " + this.windowSize);
                         break;
                     case SLOW_START:
@@ -202,13 +207,14 @@ public class TCPSocketImpl extends TCPSocket {
         return ret;
     }
 
-    private void printWindow(){
+    private void printWindow() {
         String result = "";
-        for(TCPPacket p : window){
-            result += p.getSequenceNumber() +  ", ";
+        for (TCPPacket p : window) {
+            result += p.getSequenceNumber() + ", ";
         }
         ConsoleLog.fileLog("Window : " + result);
     }
+
     @Override
     public void send(String pathToFile) throws Exception {
         File file = new File(pathToFile);
