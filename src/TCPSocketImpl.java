@@ -143,8 +143,9 @@ public class TCPSocketImpl extends TCPSocket {
     }
 
     private void ackReceive() throws IOException {
-        TCPPacket ack = null;
+        TCPPacket ack;
         while (true) {
+            ack = null;
             while (ack == null || !(ack.getACK())) {
                 byte[] ackData = new byte[this.UDPSocket.getPayloadLimitInBytes()];
                 UDPSocket.receive(new DatagramPacket(ackData, ackData.length));
@@ -156,6 +157,7 @@ public class TCPSocketImpl extends TCPSocket {
                         < window.get(firstUnackedPacketIndex).getExpectedAcknowledgementNumber())
                     break;
             if (firstUnackedPacketIndex == 0) {
+//                ConsoleLog.fileLog("received ack : " + ack.getAcknowledgementNumber() + " dup ack : " + duplicateAcks);
                 if (this.state == State.CONGESTION_AVOIDANCE) {
                     duplicateAcks++;
                     if (duplicateAcks >= 3) {
@@ -171,14 +173,10 @@ public class TCPSocketImpl extends TCPSocket {
                 this.lastSentIndex--;
                 switch (this.state) {
                     case CONGESTION_AVOIDANCE:
-//                        ConsoleLog.fileLog("Before: " + this.windowSize);
                         this.windowSize += this.getMSS() * this.getMSS() / this.windowSize;
-//                        ConsoleLog.fileLog("After: " + this.windowSize);
                         break;
                     case SLOW_START:
-//                        ConsoleLog.fileLog("Before: " + this.windowSize);
                         this.windowSize += this.getMSS();
-//                        ConsoleLog.fileLog("After: " + this.windowSize);
                         if (this.windowSize > this.SSThreshold)
                             this.state = State.CONGESTION_AVOIDANCE;
                         break;
@@ -232,12 +230,9 @@ public class TCPSocketImpl extends TCPSocket {
                 readBytes += buffer.read(data, 0, data.length);
                 TCPPacket packet = new TCPPacket(seq, data);
                 packets.add(packet);
-//                ConsoleLog.fileLog("new packet : " + packet.getSequenceNumber());
                 seq += packet.getDataLength() + 1;
             }
-//            ConsoleLog.fileLog("pack size " + packets.size());
             window.addAll(packets);
-//            printWindow();
             this.send();
             ConsoleLog.fileLog(String.format("windowSize: %f,\twindow.size: %d,\tlastSentIndex:%d",
                     this.windowSize, this.window.size(), this.lastSentIndex));
