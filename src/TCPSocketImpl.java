@@ -12,7 +12,7 @@ public class TCPSocketImpl extends TCPSocket {
     private int serverPort;
 
     private int SSThreshold;
-    private static final int DefaultSSThreshold = 0;
+    private static final int DefaultSSThreshold = 100;
     private long seq = 100;
     private long expectedSeq;
     private final int timeout = 2000;
