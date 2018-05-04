@@ -6,5 +6,6 @@ public class Sender {
         TCPSocket tcpSocket = new TCPSocketImpl("127.0.0.1", 12345);
         tcpSocket.sendAndLog("sending.mp3");
         tcpSocket.close();
+        tcpSocket.saveCongestionWindowPlot();
     }
 }
