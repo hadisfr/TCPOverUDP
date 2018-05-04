@@ -42,6 +42,7 @@ public class TCPSocketImpl extends TCPSocket {
         this.SSThreshold = 0;
         this.windowSize = 1;
         this.duplicateAcks = 0;
+        this.onWindowChange();
         ConsoleLog.connectionLog(String.format("Client is up on port %d and is connected to %s:%d.",
                 this.UDPSocket.getLocalPort(), this.serverIp, this.serverPort));
     }
@@ -108,6 +109,7 @@ public class TCPSocketImpl extends TCPSocket {
         this.state = State.SLOW_START;
         this.SSThreshold = (int) (this.windowSize / 2);
         this.windowSize = 1;
+        this.onWindowChange();
     }
 
     private void send(boolean isResend) throws Exception {
@@ -164,6 +166,7 @@ public class TCPSocketImpl extends TCPSocket {
                     case CONGESTION_AVOIDANCE:
 //                        ConsoleLog.fileLog("Before: " + this.windowSize);
                         this.windowSize += this.getMSS() * this.getMSS() / this.windowSize;
+
 //                        ConsoleLog.fileLog("After: " + this.windowSize);
                         break;
                     case SLOW_START:
@@ -174,6 +177,7 @@ public class TCPSocketImpl extends TCPSocket {
                             this.state = State.CONGESTION_AVOIDANCE;
                         break;
                 }
+                this.onWindowChange();
             }
             ConsoleLog.fileLog("Window size: " + this.windowSize);
             break;
