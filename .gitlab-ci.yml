@@ -1,0 +1,20 @@
+image: openjdk:10-jdk
+
+build:
+  stage: build
+  script: ./build.sh
+  artifacts:
+    paths:
+      - target
+
+test:
+  stage: test
+  script:
+    - curl https://ccrma.stanford.edu/~jos/mp3/pno-cs.mp3 -o sending.mp3
+    - ./receiver.sh &
+    - ./sender.sh
+    - cmp sending.mp3 receiving.mp3
+  artifacts:
+    paths:
+      - ./*.mp3
+      - ./*.png
