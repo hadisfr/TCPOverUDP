@@ -1,6 +1,7 @@
 import java.io.*;
 import java.net.DatagramPacket;
 import java.net.InetAddress;
+import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Timer;
@@ -245,8 +246,11 @@ public class TCPSocketImpl extends TCPSocket {
             packets.clear();
             for (int i = 0; windowSize > lastSentIndex + i + 1 && readBytes < file.length(); i++) {
                 byte[] data = new byte[this.UDPSocket.getPayloadLimitInBytes() - TCPPacket.dataOffsetByBytes];
-                readBytes += buffer.read(data, 0, data.length);
-                TCPPacket packet = new TCPPacket(seq, data);
+                int length = buffer.read(data, 0, data.length);
+                if (length == -1)
+                    break;
+                readBytes += length;
+                TCPPacket packet = new TCPPacket(seq, Arrays.copyOfRange(data, 0, length));
                 packets.add(packet);
                 seq += packet.getDataLength() + 1;
             }
